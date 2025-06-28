@@ -1,0 +1,26 @@
+{
+  "status": "ok",
+  "totalResults": 2,
+  "articles": [
+    {
+      "source": { "name": "Fallback News" },
+      "author": "AI Assistant",
+      "title": "Welcome to NewsNow!",
+      "description": "This is fallback news content. Real news will appear when APIs are available.",
+      "url": "https://newsnow.example.com/welcome",
+      "urlToImage": "/news1.jpeg",
+      "publishedAt": "2024-06-01T12:00:00Z",
+      "content": "Thank you for visiting NewsNow. This is a fallback article."
+    },
+    {
+      "source": { "name": "Fallback News" },
+      "author": "AI Assistant",
+      "title": "Stay Tuned for Updates",
+      "description": "Our news APIs are currently unavailable. Please check back soon!",
+      "url": "https://newsnow.example.com/updates",
+      "urlToImage": "/news2.jpg",
+      "publishedAt": "2024-06-01T13:00:00Z",
+      "content": "We are working to restore live news. This is a fallback article."
+    }
+  ]
+} 

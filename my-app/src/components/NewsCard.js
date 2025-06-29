@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 // Fallback static images
@@ -23,10 +23,8 @@ const NewsCard = ({ section, interval = 3500 }) => {
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [showDynamic, setShowDynamic] = useState(false);
 
-  const staticImages =
-    section.staticImages || section.images || [fallbackStaticImages[section.name] || fallbackStaticImages['News']];
-
-  const dynamicImages = section?.apiImages?.length > 0 ? section.apiImages : [];
+  const staticImages = useMemo(() => section.staticImages || section.images || [fallbackStaticImages[section.name] || fallbackStaticImages['News']], [section.staticImages, section.images, section.name]);
+  const dynamicImages = useMemo(() => section?.apiImages?.length > 0 ? section.apiImages : [], [section?.apiImages]);
   const hasDynamicImages = dynamicImages.length > 0;
 
   // Watch for component visibility
@@ -50,7 +48,7 @@ const NewsCard = ({ section, interval = 3500 }) => {
     if (visible && hasDynamicImages && dynamicImages.length > 0) {
       setShowDynamic(true);
     }
-  }, [visible, hasDynamicImages, dynamicImages]);
+  }, [visible, hasDynamicImages, dynamicImages.length]);
 
   // Carousel logic
   useEffect(() => {
@@ -64,7 +62,7 @@ const NewsCard = ({ section, interval = 3500 }) => {
     }, interval);
 
     return () => clearInterval(intv);
-  }, [visible, showDynamic, dynamicImages, staticImages, hasDynamicImages, interval]);
+  }, [visible, showDynamic, hasDynamicImages, dynamicImages, staticImages, interval]);
 
   // Loading skeleton (before visible)
   if (!visible) {

@@ -46,8 +46,6 @@ const NewspaperContainer = () => {
         let apiImages = [];
         let publishedAt = '';
         let success = false;
-        let usedKey = null;
-        let sourceInfo = '';
         
         // Define section-specific keywords for better filtering
         const sectionKeywords = {
@@ -130,7 +128,6 @@ const NewspaperContainer = () => {
               
               if (apiImages.length > 0) {
                 success = true;
-                usedKey = apiKey;
                 console.log(`✅ ${section.name}: Found ${apiImages.length} high-quality relevant images from ${sourceInfo}`);
                 break;
               } else {

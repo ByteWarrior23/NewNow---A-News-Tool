@@ -25,7 +25,7 @@ const Navbar = () => {
     };
     if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
+  }, [menuOpen, setMenuOpen]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

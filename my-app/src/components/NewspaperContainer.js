@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import NewsCard from './NewsCard';
 import ContactUsForm from './ContactUsForm';
 import { MenuContext } from '../App';
@@ -17,8 +17,6 @@ const sections = [
   { name: 'World', query: 'world', images: ['/live1.jpeg', '/live2.jpeg'], description: 'Global headlines and world events. Read more world news!' },
 ];
 
-const defaultImg = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80';
-
 const NEWSAPI_KEYS = [
   'cef746d60bcb472495f74deff9156436',
   '2479479084c04b4d8278c0c474687c0e',
@@ -26,15 +24,11 @@ const NEWSAPI_KEYS = [
   '3befea5a207042ada2bc0c15e097eb8b',
   '29b19221c70c4d6eaf44479bdca67d0b',
 ];
-const GNEWS_API_KEY = 'a1111e26000d8f62f6362c05a5d01052';
-
-const CARDS_PER_PAGE = 6;
 
 const NewspaperContainer = () => {
   const topRef = useRef(null);
   const [sectionData, setSectionData] = useState([]); // [{ name, images: [img1, img2], publishedAt: Date }]
   const [showTop, setShowTop] = useState(false);
-  const [cache, setCache] = useState({}); // { sectionName: { images, publishedAt } }
   const [mobileCardIdx, setMobileCardIdx] = useState(0);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [showWheelModal, setShowWheelModal] = useState(false);
@@ -44,12 +38,6 @@ const NewspaperContainer = () => {
   const { menuOpen } = useContext(MenuContext);
 
   const categories = sections.map(s => s.name);
-
-  // Helper to rotate API keys for each section
-  const apiKeyIndexRef = useRef(0);
-
-  // Helper to get fallback images for a section
-  const getFallbackImages = (section) => section.images;
 
   // Fetch API images for all sections at once
   const fetchSections = async () => {
@@ -80,13 +68,6 @@ const NewspaperContainer = () => {
         // Try NewsAPI first with strict relevance filtering
         for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
           const apiKey = NEWSAPI_KEYS[i];
-          let url;
-          
-          if (section.name === 'Headlines') {
-            url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=20&apiKey=${apiKey}`;
-          } else {
-            url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(section.query)}&language=en&pageSize=20&sortBy=relevancy&apiKey=${apiKey}`;
-          }
           
           try {
             console.log(`📰 Trying NewsAPI key ${i + 1} for: ${section.name}`);
@@ -103,36 +84,40 @@ const NewspaperContainer = () => {
             
             if (data.status === 'ok' && data.articles && data.articles.length > 0) {
               // STRICT relevance filtering
-              const relevantArticles = data.articles.filter(article => {
-                if (!article.title || !article.urlToImage) return false;
-                
-                const title = article.title.toLowerCase();
-                const description = (article.description || '').toLowerCase();
-                const source = (article.source?.name || '').toLowerCase();
-                
-                // Check if image is valid
-                const hasValidImage = article.urlToImage && 
-                  article.urlToImage.includes('https://') && 
-                  !article.urlToImage.includes('null') &&
-                  !article.urlToImage.includes('undefined') &&
-                  article.urlToImage.length > 20;
-                
-                if (!hasValidImage) return false;
-                
-                // Check relevance using keywords
-                const isRelevant = keywords.some(keyword => 
-                  title.includes(keyword) || 
-                  description.includes(keyword) ||
-                  source.includes(keyword)
-                );
-                
-                // Additional quality checks
-                const hasGoodTitle = title.length > 10 && title.length < 200;
-                const hasGoodDescription = description.length > 20;
-                const isNotDuplicate = !apiImages.includes(article.urlToImage);
-                
-                return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
-              });
+              const filterRelevantArticles = (articles, currentApiImages) => {
+                return articles.filter(article => {
+                  if (!article.title || !article.urlToImage) return false;
+                  
+                  const title = article.title.toLowerCase();
+                  const description = (article.description || '').toLowerCase();
+                  const source = (article.source?.name || '').toLowerCase();
+                  
+                  // Check if image is valid
+                  const hasValidImage = article.urlToImage && 
+                    article.urlToImage.includes('https://') && 
+                    !article.urlToImage.includes('null') &&
+                    !article.urlToImage.includes('undefined') &&
+                    article.urlToImage.length > 20;
+                  
+                  if (!hasValidImage) return false;
+                  
+                  // Check relevance using keywords
+                  const isRelevant = keywords.some(keyword => 
+                    title.includes(keyword) || 
+                    description.includes(keyword) ||
+                    source.includes(keyword)
+                  );
+                  
+                  // Additional quality checks
+                  const hasGoodTitle = title.length > 10 && title.length < 200;
+                  const hasGoodDescription = description.length > 20;
+                  const isNotDuplicate = !currentApiImages.includes(article.urlToImage);
+                  
+                  return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
+                });
+              };
+              
+              const relevantArticles = filterRelevantArticles(data.articles, apiImages);
               
               // Take only the best 3-5 relevant articles with images
               const bestArticles = relevantArticles
@@ -173,36 +158,40 @@ const NewspaperContainer = () => {
             
             if (data.articles && data.articles.length > 0) {
               // Same strict filtering for GNews
-              const relevantArticles = data.articles.filter(article => {
-                if (!article.title || !article.image) return false;
-                
-                const title = article.title.toLowerCase();
-                const description = (article.description || '').toLowerCase();
-                const source = (article.source?.name || '').toLowerCase();
-                
-                // Check if image is valid
-                const hasValidImage = article.image && 
-                  article.image.includes('https://') && 
-                  !article.image.includes('null') &&
-                  !article.image.includes('undefined') &&
-                  article.image.length > 20;
-                
-                if (!hasValidImage) return false;
-                
-                // Check relevance using keywords
-                const isRelevant = keywords.some(keyword => 
-                  title.includes(keyword) || 
-                  description.includes(keyword) ||
-                  source.includes(keyword)
-                );
-                
-                // Additional quality checks
-                const hasGoodTitle = title.length > 10 && title.length < 200;
-                const hasGoodDescription = description.length > 20;
-                const isNotDuplicate = !apiImages.includes(article.image);
-                
-                return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
-              });
+              const filterRelevantGNewsArticles = (articles, currentApiImages) => {
+                return articles.filter(article => {
+                  if (!article.title || !article.image) return false;
+                  
+                  const title = article.title.toLowerCase();
+                  const description = (article.description || '').toLowerCase();
+                  const source = (article.source?.name || '').toLowerCase();
+                  
+                  // Check if image is valid
+                  const hasValidImage = article.image && 
+                    article.image.includes('https://') && 
+                    !article.image.includes('null') &&
+                    !article.image.includes('undefined') &&
+                    article.image.length > 20;
+                  
+                  if (!hasValidImage) return false;
+                  
+                  // Check relevance using keywords
+                  const isRelevant = keywords.some(keyword => 
+                    title.includes(keyword) || 
+                    description.includes(keyword) ||
+                    source.includes(keyword)
+                  );
+                  
+                  // Additional quality checks
+                  const hasGoodTitle = title.length > 10 && title.length < 200;
+                  const hasGoodDescription = description.length > 20;
+                  const isNotDuplicate = !currentApiImages.includes(article.image);
+                  
+                  return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
+                });
+              };
+              
+              const relevantArticles = filterRelevantGNewsArticles(data.articles, apiImages);
               
               // Take only the best 3-5 relevant articles with images
               const bestArticles = relevantArticles
@@ -232,7 +221,6 @@ const NewspaperContainer = () => {
           sourceInfo = 'Static images';
         }
         
-        setCache(prev => ({ ...prev, [section.name]: { apiImages, publishedAt, usedKey, sourceInfo } }));
         return { ...section, staticImages: section.images, apiImages, publishedAt, sourceInfo };
       })
     );
@@ -249,20 +237,6 @@ const NewspaperContainer = () => {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
-  // Ripple effect for buttons
-  const handleRipple = (e) => {
-    const button = e.currentTarget;
-    const circle = document.createElement('span');
-    const diameter = Math.max(button.clientWidth, button.clientHeight);
-    const radius = diameter / 2;
-    circle.style.width = circle.style.height = `${diameter}px`;
-    circle.style.left = `${e.clientX - button.getBoundingClientRect().left - radius}px`;
-    circle.style.top = `${e.clientY - button.getBoundingClientRect().top - radius}px`;
-    circle.classList.add('ripple');
-    button.appendChild(circle);
-    setTimeout(() => circle.remove(), 600);
-  };
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 

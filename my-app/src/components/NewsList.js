@@ -65,7 +65,6 @@ const NewsList = () => {
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [liveStatus, setLiveStatus] = useState(null);
   const [showTop, setShowTop] = useState(false);
-  const sectionKey = `${section.toLowerCase()}-${page}`;
   const topRef = useRef(null);
   const { menuOpen } = useContext(MenuContext);
 
@@ -81,7 +80,6 @@ const NewsList = () => {
       let success = false;
       let articles = [];
       let totalResults = 0;
-      let isLive = false;
       try {
         const res = await fetch('/api/news', {
           method: 'POST',
@@ -93,7 +91,6 @@ const NewsList = () => {
           articles = data.articles;
           totalResults = data.totalResults;
           success = true;
-          isLive = true;
         }
       } catch {}
       const sorted = success ? [...articles].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)) : [];

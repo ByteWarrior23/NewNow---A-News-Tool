@@ -46,6 +46,7 @@ const NewspaperContainer = () => {
         let apiImages = [];
         let publishedAt = '';
         let success = false;
+        let sourceInfo = '';
         
         // Define section-specific keywords for better filtering
         const sectionKeywords = {

@@ -22,7 +22,7 @@ const defaultImg = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb
 const NEWSAPI_KEYS = [
   'cef746d60bcb472495f74deff9156436',
   '2479479084c04b4d8278c0c474687c0e',
-  'c7d0ed6e8f834215b2f4f0f2f40443fa',
+  'cef746d60bcb472495f74deff9156436',
   '3befea5a207042ada2bc0c15e097eb8b',
   '29b19221c70c4d6eaf44479bdca67d0b',
 ];
@@ -59,51 +59,181 @@ const NewspaperContainer = () => {
         let publishedAt = '';
         let success = false;
         let usedKey = null;
-        // Rotate API keys for each section
+        let sourceInfo = '';
+        
+        // Define section-specific keywords for better filtering
+        const sectionKeywords = {
+          'Headlines': ['breaking', 'latest', 'news', 'headlines', 'top', 'main'],
+          'Sport': ['sport', 'sports', 'football', 'basketball', 'tennis', 'cricket', 'olympics', 'championship', 'league', 'match', 'game', 'player', 'team'],
+          'Business': ['business', 'economy', 'finance', 'market', 'stock', 'investment', 'company', 'corporate', 'trade', 'economic', 'financial', 'startup', 'entrepreneur'],
+          'Technology': ['technology', 'tech', 'software', 'hardware', 'ai', 'artificial intelligence', 'digital', 'innovation', 'startup', 'app', 'mobile', 'computer', 'internet'],
+          'Entertainment': ['entertainment', 'movie', 'film', 'music', 'celebrity', 'hollywood', 'actor', 'actress', 'singer', 'artist', 'show', 'performance', 'award'],
+          'Science': ['science', 'research', 'study', 'discovery', 'scientific', 'experiment', 'laboratory', 'medical', 'health', 'biology', 'chemistry', 'physics'],
+          'Travel': ['travel', 'tourism', 'destination', 'vacation', 'hotel', 'airline', 'flight', 'trip', 'journey', 'adventure', 'explore', 'visit'],
+          'Environment': ['environment', 'climate', 'weather', 'nature', 'green', 'sustainability', 'pollution', 'conservation', 'renewable', 'energy', 'earth'],
+          'Media': ['media', 'journalism', 'news', 'press', 'broadcast', 'television', 'radio', 'publishing', 'reporter', 'journalist'],
+          'World': ['world', 'global', 'international', 'foreign', 'country', 'nation', 'diplomatic', 'politics', 'government']
+        };
+        
+        const keywords = sectionKeywords[section.name] || [section.query];
+        
+        // Try NewsAPI first with strict relevance filtering
         for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
-          const keyIdx = (apiKeyIndexRef.current + i + idx) % NEWSAPI_KEYS.length;
-          const apiKey = NEWSAPI_KEYS[keyIdx];
+          const apiKey = NEWSAPI_KEYS[i];
+          let url;
+          
+          if (section.name === 'Headlines') {
+            url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=20&apiKey=${apiKey}`;
+          } else {
+            url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(section.query)}&language=en&pageSize=20&sortBy=relevancy&apiKey=${apiKey}`;
+          }
+          
           try {
-            const res = await fetch('/api/news', {
+            console.log(`📰 Trying NewsAPI key ${i + 1} for: ${section.name}`);
+            const response = await fetch('/api/news', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: section.query, apiKey }),
+              body: JSON.stringify({ 
+                query: section.query, 
+                apiKey,
+                trending: section.name === 'Headlines'
+              }),
             });
-            const data = await res.json();
-            if (data.status === 'ok') {
-              apiImages = (data.articles || [])
-                .map(a => a.urlToImage)
-                .filter((img, idx, arr) => img && arr.indexOf(img) === idx && img.includes('https://'));
-              publishedAt = (data.articles && data.articles[0] && data.articles[0].publishedAt) || '';
-              if (apiImages.length) {
+            const data = await response.json();
+            
+            if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+              // STRICT relevance filtering
+              const relevantArticles = data.articles.filter(article => {
+                if (!article.title || !article.urlToImage) return false;
+                
+                const title = article.title.toLowerCase();
+                const description = (article.description || '').toLowerCase();
+                const source = (article.source?.name || '').toLowerCase();
+                
+                // Check if image is valid
+                const hasValidImage = article.urlToImage && 
+                  article.urlToImage.includes('https://') && 
+                  !article.urlToImage.includes('null') &&
+                  !article.urlToImage.includes('undefined') &&
+                  article.urlToImage.length > 20;
+                
+                if (!hasValidImage) return false;
+                
+                // Check relevance using keywords
+                const isRelevant = keywords.some(keyword => 
+                  title.includes(keyword) || 
+                  description.includes(keyword) ||
+                  source.includes(keyword)
+                );
+                
+                // Additional quality checks
+                const hasGoodTitle = title.length > 10 && title.length < 200;
+                const hasGoodDescription = description.length > 20;
+                const isNotDuplicate = !apiImages.includes(article.urlToImage);
+                
+                return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
+              });
+              
+              // Take only the best 3-5 relevant articles with images
+              const bestArticles = relevantArticles
+                .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+                .slice(0, 5);
+              
+              apiImages = bestArticles.map(a => a.urlToImage);
+              publishedAt = bestArticles[0]?.publishedAt || '';
+              sourceInfo = `NewsAPI (${bestArticles.length} relevant articles)`;
+              
+              if (apiImages.length > 0) {
                 success = true;
                 usedKey = apiKey;
-                apiKeyIndexRef.current = (keyIdx + 1) % NEWSAPI_KEYS.length;
+                console.log(`✅ ${section.name}: Found ${apiImages.length} high-quality relevant images from ${sourceInfo}`);
                 break;
+              } else {
+                console.log(`⚠️ ${section.name}: No relevant articles with valid images from NewsAPI key ${i + 1}`);
               }
             } else if (data.code === 'rateLimited' || data.message?.includes('too many requests')) {
+              console.log(`⚠️ ${section.name}: NewsAPI key ${i + 1} rate limited`);
               continue;
             }
-          } catch {}
+          } catch (err) {
+            console.log(`❌ ${section.name}: NewsAPI key ${i + 1} error: ${err.message}`);
+          }
         }
-        // If NewsAPI fails, try GNews
+        
+        // If NewsAPI fails, try GNews with same strict filtering
         if (!success) {
           try {
+            console.log(`🌐 Trying GNews for: ${section.name}`);
             const res = await fetch('/api/gnews', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: section.query, apiKey: GNEWS_API_KEY }),
+              body: JSON.stringify({ query: section.query }),
             });
             const data = await res.json();
-            if (data.articles) {
-              apiImages = data.articles.map(a => a.image).filter(Boolean);
-              publishedAt = (data.articles[0] && data.articles[0].publishedAt) || '';
-              if (apiImages.length) success = true;
+            
+            if (data.articles && data.articles.length > 0) {
+              // Same strict filtering for GNews
+              const relevantArticles = data.articles.filter(article => {
+                if (!article.title || !article.image) return false;
+                
+                const title = article.title.toLowerCase();
+                const description = (article.description || '').toLowerCase();
+                const source = (article.source?.name || '').toLowerCase();
+                
+                // Check if image is valid
+                const hasValidImage = article.image && 
+                  article.image.includes('https://') && 
+                  !article.image.includes('null') &&
+                  !article.image.includes('undefined') &&
+                  article.image.length > 20;
+                
+                if (!hasValidImage) return false;
+                
+                // Check relevance using keywords
+                const isRelevant = keywords.some(keyword => 
+                  title.includes(keyword) || 
+                  description.includes(keyword) ||
+                  source.includes(keyword)
+                );
+                
+                // Additional quality checks
+                const hasGoodTitle = title.length > 10 && title.length < 200;
+                const hasGoodDescription = description.length > 20;
+                const isNotDuplicate = !apiImages.includes(article.image);
+                
+                return isRelevant && hasGoodTitle && hasGoodDescription && isNotDuplicate;
+              });
+              
+              // Take only the best 3-5 relevant articles with images
+              const bestArticles = relevantArticles
+                .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+                .slice(0, 5);
+              
+              apiImages = bestArticles.map(a => a.image);
+              publishedAt = bestArticles[0]?.publishedAt || '';
+              sourceInfo = `GNews (${bestArticles.length} relevant articles)`;
+              
+              if (apiImages.length > 0) {
+                success = true;
+                console.log(`✅ ${section.name}: Found ${apiImages.length} high-quality relevant images from ${sourceInfo}`);
+              } else {
+                console.log(`⚠️ ${section.name}: No relevant articles with valid images from GNews`);
+              }
             }
-          } catch {}
+          } catch (err) {
+            console.log(`❌ ${section.name}: GNews error: ${err.message}`);
+          }
         }
-        setCache(prev => ({ ...prev, [section.name]: { apiImages, publishedAt, usedKey } }));
-        return { ...section, staticImages: section.images, apiImages, publishedAt };
+        
+        // If no relevant images found, use static images
+        if (!success || apiImages.length === 0) {
+          console.log(`📄 ${section.name}: Using static images (no relevant API images found)`);
+          apiImages = [];
+          sourceInfo = 'Static images';
+        }
+        
+        setCache(prev => ({ ...prev, [section.name]: { apiImages, publishedAt, usedKey, sourceInfo } }));
+        return { ...section, staticImages: section.images, apiImages, publishedAt, sourceInfo };
       })
     );
     setSectionData(results);

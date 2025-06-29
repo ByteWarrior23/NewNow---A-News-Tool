@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const NEWSAPI_KEYS = [
   'cef746d60bcb472495f74deff9156436',
   '2479479084c04b4d8278c0c474687c0e',
-  'c7d0ed6e8f834215b2f4f0f2f40443fa',
+  'cef746d60bcb472495f74deff9156436',
   '3befea5a207042ada2bc0c15e097eb8b',
   '29b19221c70c4d6eaf44479bdca67d0b',
 ];

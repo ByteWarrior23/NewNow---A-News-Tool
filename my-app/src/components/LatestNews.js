@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ArticleCard from './ArticleCard';
 
-const LatestNews = () => {
+const TrendingNews = () => {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -9,7 +9,7 @@ const LatestNews = () => {
   const articlesPerPage = 12; // Backend returns 12 articles per page
 
   useEffect(() => {
-    const fetchLatest = async () => {
+    const fetchTrending = async () => {
       setLoading(true);
       try {
         const res = await fetch('/api/news', {
@@ -29,12 +29,12 @@ const LatestNews = () => {
           setArticles([]);
         }
       } catch (error) {
-        console.error('Error fetching latest news:', error);
+        console.error('Error fetching trending news:', error);
         setArticles([]);
       }
       setLoading(false);
     };
-    fetchLatest();
+    fetchTrending();
   }, [currentPage]);
 
   const handlePageChange = (page) => {
@@ -45,7 +45,7 @@ const LatestNews = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 pt-32">
-        <div className="text-center text-blue-500 text-xl">Loading latest news...</div>
+        <div className="text-center text-blue-500 text-xl">Loading trending news...</div>
       </div>
     );
   }
@@ -53,7 +53,7 @@ const LatestNews = () => {
   if (articles.length === 0) {
     return (
       <div className="container mx-auto px-4 pt-32">
-        <div className="text-center text-gray-500 text-xl">No latest news available.</div>
+        <div className="text-center text-gray-500 text-xl">No trending news available.</div>
       </div>
     );
   }
@@ -61,7 +61,7 @@ const LatestNews = () => {
   return (
     <div className="container mx-auto px-4 pt-32">
       <h1 className="text-3xl font-bold mb-8 text-center text-gray-800 dark:text-white">
-        Latest News
+        Trending News
       </h1>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
@@ -121,4 +121,4 @@ const LatestNews = () => {
   );
 };
 
-export default LatestNews; 
+export default TrendingNews; 

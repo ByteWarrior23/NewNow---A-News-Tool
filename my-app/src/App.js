@@ -5,7 +5,7 @@ import './App.css';
 import Navbar from './components/Navbar';
 import NewspaperContainer from './components/NewspaperContainer';
 import NewsList from './components/NewsList';
-import LatestNews from './components/LatestNews';
+import TrendingNews from './components/LatestNews';
 import AskNewsAI from './components/AskNewsAI';
 import NotFoundPage from './components/NotFoundPage';
 
@@ -21,7 +21,7 @@ function App() {
           <Routes>
             <Route path="/" element={<NewspaperContainer />} />
             <Route path="/news/:section" element={<NewsList />} />
-            <Route path="/latest" element={<LatestNews />} />
+            <Route path="/latest" element={<TrendingNews />} />
             <Route path="/ask" element={<AskNewsAI />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

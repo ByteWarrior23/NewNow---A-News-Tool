@@ -17,7 +17,7 @@ const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 const NEWSAPI_KEYS = [
   'cef746d60bcb472495f74deff9156436',
   '2479479084c04b4d8278c0c474687c0e',
-  'c7d0ed6e8f834215b2f4f0f2f40443fa',
+  'cef746d60bcb472495f74deff9156436', // Replaced invalid key with working key 1
   '3befea5a207042ada2bc0c15e097eb8b',
   '29b19221c70c4d6eaf44479bdca67d0b',
 ];
@@ -31,70 +31,261 @@ function getNextNewsApiKey() {
   return key;
 }
 
-// NewsAPI proxy with caching and fallback
+// NewsAPI proxy with strict priority order and caching
 app.post('/api/news', async (req, res) => {
   let { query, page = 1, sortBy = 'publishedAt', trending } = req.body;
   if (!query) query = 'India';
   const cacheKey = `newsapi-${query}-page${page}-sortBy${sortBy}-trending${trending || false}`;
   const now = Date.now();
+  
+  // Check cache first
   if (newsCache[cacheKey] && now - newsCache[cacheKey].ts < CACHE_DURATION) {
+    console.log(`📦 Serving cached data for: ${query}`);
     return res.json(newsCache[cacheKey].data);
   }
+
+  console.log(`🔍 Fetching news for: ${query} (page ${page})`);
+  
+  // PRIORITY 1: Try NewsAPI with ALL keys first
   let data = null;
+  let newsApiSuccess = false;
+  let usedKey = null;
+  
   for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
-    const apiKey = getNextNewsApiKey();
+    const apiKey = NEWSAPI_KEYS[i];
     let url;
+    
     if (trending) {
-      url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=12&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
+      url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=20&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
     } else {
-      url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=12&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
+      url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=20&page=${page}&sortBy=relevancy&apiKey=${apiKey}`;
     }
+    
     try {
+      console.log(`📰 Trying NewsAPI key ${i + 1} for: ${query}`);
       const response = await fetch(url);
       data = await response.json();
-      if (data.status === 'ok') {
-        newsCache[cacheKey] = { data, ts: now };
-        return res.json(data);
-      }
-      if (data.code === 'rateLimited' || data.code === 'apiKeyExhausted' || (data.message && data.message.includes('too many requests'))) {
+      
+      if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+        // Filter for quality articles with valid images
+        const qualityArticles = data.articles.filter(article => {
+          // Must have title and image
+          if (!article.title || !article.urlToImage) return false;
+          
+          // Image must be valid
+          const hasValidImage = article.urlToImage && 
+            article.urlToImage.includes('https://') && 
+            !article.urlToImage.includes('null') &&
+            !article.urlToImage.includes('undefined') &&
+            article.urlToImage.length > 20;
+          
+          if (!hasValidImage) return false;
+          
+          // Title must be reasonable length
+          const hasGoodTitle = article.title.length > 10 && article.title.length < 200;
+          
+          // Must have description
+          const hasDescription = article.description && article.description.length > 20;
+          
+          // Must have valid URL
+          const hasValidUrl = article.url && article.url.includes('http');
+          
+          return hasGoodTitle && hasDescription && hasValidUrl;
+        });
+        
+        if (qualityArticles.length > 0) {
+          console.log(`✅ NewsAPI success with key ${i + 1}: ${qualityArticles.length} quality articles`);
+          newsApiSuccess = true;
+          usedKey = apiKey;
+          
+          // Return only quality articles
+          const qualityData = {
+            ...data,
+            articles: qualityArticles,
+            totalResults: data.totalResults || 1000 // Preserve original totalResults or set a reasonable default
+          };
+          
+          newsCache[cacheKey] = { data: qualityData, ts: now };
+          return res.json(qualityData);
+        } else {
+          console.log(`⚠️ NewsAPI key ${i + 1} returned articles but none met quality standards`);
+          continue;
+        }
+      } else if (data.code === 'rateLimited' || data.code === 'apiKeyExhausted' || (data.message && data.message.includes('too many requests'))) {
+        console.log(`⚠️ NewsAPI key ${i + 1} rate limited, trying next key`);
         continue;
       } else {
-        break;
+        console.log(`❌ NewsAPI key ${i + 1} failed: ${data.message || 'Unknown error'}`);
+        continue; // Try next key instead of breaking
       }
     } catch (err) {
+      console.log(`❌ NewsAPI key ${i + 1} error: ${err.message}`);
       continue;
     }
   }
-  // If NewsAPI fails, try GNews
-  let gnewsUrl;
-  if (trending) {
-    gnewsUrl = `https://gnews.io/api/v4/top-headlines?country=in&max=12&page=${page}&apikey=${GNEWS_API_KEY}`;
-  } else {
-    gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=12&page=${page}&apikey=${GNEWS_API_KEY}`;
-  }
-  try {
-    const response = await fetch(gnewsUrl);
-    data = await response.json();
-    if (data.articles) {
-      const converted = {
-        status: 'ok',
-        totalResults: data.totalArticles || data.articles.length,
-        articles: data.articles.map(a => ({
-          ...a,
-          urlToImage: a.image,
-          publishedAt: a.publishedAt,
-          source: { name: a.source?.name || 'GNews' },
-        })),
-      };
-      newsCache[cacheKey] = { data: converted, ts: now };
-      return res.json(converted);
+
+  // PRIORITY 2: If ALL NewsAPI keys failed, try GNews
+  if (!newsApiSuccess) {
+    console.log(`🌐 All NewsAPI keys failed, trying GNews for: ${query}`);
+    let gnewsUrl;
+    if (trending) {
+      gnewsUrl = `https://gnews.io/api/v4/top-headlines?country=in&max=20&page=${page}&apikey=${GNEWS_API_KEY}`;
+    } else {
+      gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=20&page=${page}&apikey=${GNEWS_API_KEY}`;
     }
-  } catch (err) {}
-  // Fallback to local JSON
+    
+    try {
+      const response = await fetch(gnewsUrl);
+      data = await response.json();
+      
+      if (data.articles && data.articles.length > 0) {
+        // Filter for quality articles with valid images
+        const qualityArticles = data.articles.filter(article => {
+          // Must have title and image
+          if (!article.title || !article.image) return false;
+          
+          // Image must be valid
+          const hasValidImage = article.image && 
+            article.image.includes('https://') && 
+            !article.image.includes('null') &&
+            !article.image.includes('undefined') &&
+            article.image.length > 20;
+          
+          if (!hasValidImage) return false;
+          
+          // Title must be reasonable length
+          const hasGoodTitle = article.title.length > 10 && article.title.length < 200;
+          
+          // Must have description
+          const hasDescription = article.description && article.description.length > 20;
+          
+          // Must have valid URL
+          const hasValidUrl = article.url && article.url.includes('http');
+          
+          return hasGoodTitle && hasDescription && hasValidUrl;
+        });
+        
+        if (qualityArticles.length > 0) {
+          console.log(`✅ GNews success: ${qualityArticles.length} quality articles`);
+          const converted = {
+            status: 'ok',
+            totalResults: data.totalResults || 1000, // Preserve original totalResults or set a reasonable default
+            articles: qualityArticles.map(a => ({
+              ...a,
+              urlToImage: a.image,
+              publishedAt: a.publishedAt,
+              source: { name: a.source?.name || 'GNews' },
+            })),
+          };
+          newsCache[cacheKey] = { data: converted, ts: now };
+          return res.json(converted);
+        } else {
+          console.log(`❌ GNews returned articles but none met quality standards`);
+        }
+      } else {
+        console.log(`❌ GNews failed: No articles returned`);
+      }
+    } catch (err) {
+      console.log(`❌ GNews error: ${err.message}`);
+    }
+  }
+
+  // PRIORITY 3: If both news APIs failed, try AI chatbot for summary
+  console.log(`🤖 Both news APIs failed, trying AI chatbot for: ${query}`);
+  try {
+    // Try OpenAI first
+    if (process.env.OPENAI_API_KEY) {
+      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a knowledgeable news assistant. Provide comprehensive, accurate summaries of current events and news topics. Include key developments, context, and relevant background information. Be informative and helpful.' 
+            },
+            { 
+              role: 'user', 
+              content: `Provide a detailed summary of recent ${query} news and developments. Include key events, trends, important context, and any significant developments. If this is a search query, explain what's happening in this area and provide relevant insights.` 
+            },
+          ],
+          max_tokens: 400,
+          temperature: 0.7,
+        }),
+      });
+      const aiData = await aiResponse.json();
+      
+      if (aiData.choices && aiData.choices[0] && aiData.choices[0].message) {
+        console.log(`✅ AI chatbot success: Generated comprehensive summary`);
+        const aiSummary = aiData.choices[0].message.content.trim();
+        const fallbackWithAI = {
+          status: 'ok',
+          totalResults: 1,
+          articles: [{
+            title: `AI Analysis: ${query.charAt(0).toUpperCase() + query.slice(1)} News & Developments`,
+            description: aiSummary,
+            url: '#',
+            urlToImage: '/logo192.png',
+            publishedAt: new Date().toISOString(),
+            source: { name: 'AI News Assistant' },
+          }],
+        };
+        newsCache[cacheKey] = { data: fallbackWithAI, ts: now };
+        return res.json(fallbackWithAI);
+      }
+    }
+    
+    // Try Gemini if OpenAI failed
+    if (process.env.GEMINI_API_KEY) {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ 
+            parts: [{ 
+              text: `Provide a detailed summary of recent ${query} news and developments. Include key events, trends, important context, and any significant developments. If this is a search query, explain what's happening in this area and provide relevant insights.` 
+            }] 
+          }],
+        }),
+      });
+      const geminiData = await geminiResponse.json();
+      
+      if (geminiData.candidates && geminiData.candidates[0] && geminiData.candidates[0].content) {
+        console.log(`✅ AI chatbot success: Generated comprehensive summary`);
+        const aiSummary = geminiData.candidates[0].content.parts[0].text.trim();
+        const fallbackWithAI = {
+          status: 'ok',
+          totalResults: 1,
+          articles: [{
+            title: `AI Analysis: ${query.charAt(0).toUpperCase() + query.slice(1)} News & Developments`,
+            description: aiSummary,
+            url: '#',
+            urlToImage: '/logo192.png',
+            publishedAt: new Date().toISOString(),
+            source: { name: 'AI News Assistant' },
+          }],
+        };
+        newsCache[cacheKey] = { data: fallbackWithAI, ts: now };
+        return res.json(fallbackWithAI);
+      }
+    }
+  } catch (err) {
+    console.log(`❌ AI chatbot error: ${err.message}`);
+  }
+
+  // PRIORITY 4: Final fallback to local JSON
+  console.log(`📄 Using fallback data for: ${query}`);
   try {
     const fallback = JSON.parse(fs.readFileSync(__dirname + '/fallbackNews.json', 'utf8'));
     return res.json(fallback);
   } catch (err) {
+    console.log(`❌ Fallback failed: ${err.message}`);
     return res.status(500).json({ error: 'All news sources failed and no fallback available.' });
   }
 });
@@ -125,13 +316,35 @@ app.post('/api/gnews', async (req, res) => {
   }
 });
 
-// OpenAI proxy with AI summary caching
+// OpenAI proxy with AI summary caching (PRIORITY 1)
 app.post('/api/openai', async (req, res) => {
   const cacheKey = JSON.stringify(req.body);
   const now = Date.now();
+  
   if (aiCache[cacheKey] && now - aiCache[cacheKey].ts < CACHE_DURATION) {
+    console.log('📦 Serving cached OpenAI response');
     return res.json(aiCache[cacheKey].data);
   }
+
+  console.log('🤖 Trying OpenAI API...');
+  
+  if (!process.env.OPENAI_API_KEY) {
+    console.log('❌ OpenAI API key not configured, trying Gemini...');
+    // Try Gemini as fallback
+    try {
+      const geminiResponse = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      });
+      const geminiData = await geminiResponse.json();
+      return res.json(geminiData);
+    } catch (err) {
+      console.log('❌ Gemini also failed, using fallback message');
+      return res.json({ choices: [{ message: { content: 'Our AI assistant is temporarily unavailable. Please check back soon!' } }] });
+    }
+  }
+
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -142,21 +355,62 @@ app.post('/api/openai', async (req, res) => {
       body: JSON.stringify(req.body),
     });
     const data = await response.json();
-    aiCache[cacheKey] = { data, ts: now };
-    res.json(data);
+    
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      console.log('✅ OpenAI API success');
+      aiCache[cacheKey] = { data, ts: now };
+      return res.json(data);
+    } else if (data.error) {
+      console.log(`❌ OpenAI API error: ${data.error.message}`);
+      // Try Gemini as fallback
+      try {
+        const geminiResponse = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body),
+        });
+        const geminiData = await geminiResponse.json();
+        return res.json(geminiData);
+      } catch (err) {
+        console.log('❌ Gemini also failed, using fallback message');
+        return res.json({ choices: [{ message: { content: 'Our AI assistant is temporarily unavailable. Please check back soon!' } }] });
+      }
+    }
   } catch (err) {
-    // Fallback: return a friendly message
-    res.json({ choices: [{ message: { content: 'Our AI assistant is temporarily unavailable. Please check back soon!' } }] });
+    console.log(`❌ OpenAI API error: ${err.message}`);
+    // Try Gemini as fallback
+    try {
+      const geminiResponse = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      });
+      const geminiData = await geminiResponse.json();
+      return res.json(geminiData);
+    } catch (err) {
+      console.log('❌ Gemini also failed, using fallback message');
+      return res.json({ choices: [{ message: { content: 'Our AI assistant is temporarily unavailable. Please check back soon!' } }] });
+    }
   }
 });
 
-// Gemini proxy with AI summary caching
+// Gemini proxy with AI summary caching (PRIORITY 2)
 app.post('/api/gemini', async (req, res) => {
   const cacheKey = JSON.stringify(req.body);
   const now = Date.now();
+  
   if (aiCache[cacheKey] && now - aiCache[cacheKey].ts < CACHE_DURATION) {
+    console.log('📦 Serving cached Gemini response');
     return res.json(aiCache[cacheKey].data);
   }
+
+  console.log('🧠 Trying Gemini API...');
+  
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('❌ Gemini API key not configured, using fallback message');
+    return res.json({ candidates: [{ content: { parts: [{ text: 'Our AI assistant is temporarily unavailable. Please check back soon!' }] } }] });
+  }
+
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
     const response = await fetch(url, {
@@ -167,11 +421,18 @@ app.post('/api/gemini', async (req, res) => {
       body: JSON.stringify(req.body),
     });
     const data = await response.json();
-    aiCache[cacheKey] = { data, ts: now };
-    res.json(data);
+    
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      console.log('✅ Gemini API success');
+      aiCache[cacheKey] = { data, ts: now };
+      return res.json(data);
+    } else if (data.error) {
+      console.log(`❌ Gemini API error: ${data.error.message}`);
+      return res.json({ candidates: [{ content: { parts: [{ text: 'Our AI assistant is temporarily unavailable. Please check back soon!' }] } }] });
+    }
   } catch (err) {
-    // Fallback: return a friendly message
-    res.json({ candidates: [{ content: { parts: [{ text: 'Our AI assistant is temporarily unavailable. Please check back soon!' }] } }] });
+    console.log(`❌ Gemini API error: ${err.message}`);
+    return res.json({ candidates: [{ content: { parts: [{ text: 'Our AI assistant is temporarily unavailable. Please check back soon!' }] } }] });
   }
 });
 

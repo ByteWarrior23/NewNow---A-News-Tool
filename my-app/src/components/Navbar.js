@@ -49,7 +49,7 @@ const Navbar = () => {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search news..."
+            placeholder="Search full news topics..."
             className="flex-1 bg-transparent outline-none border-0 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 px-2 py-1 text-base"
             aria-label="Search news"
           />
@@ -80,7 +80,7 @@ const Navbar = () => {
           {/* Trending Button */}
           <Link to="/latest" className="flex items-center gap-1 px-3 py-2 rounded hover:bg-blue-100 dark:hover:bg-zinc-700 transition text-blue-600 dark:text-blue-300 font-semibold">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            Latest News
+            Trending News
           </Link>
           <button
             onClick={() => setDarkMode((prev) => !prev)}
@@ -135,7 +135,7 @@ const Navbar = () => {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search news..."
+                placeholder="Search full news topics..."
                 className="flex-1 bg-transparent outline-none border-0 text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 px-2 py-1 text-base"
                 aria-label="Search news"
               />
@@ -168,7 +168,7 @@ const Navbar = () => {
             <div className="flex flex-col gap-2 mt-4">
               <Link to="/latest" className="block w-full text-center py-3 text-lg text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-zinc-800 transition-all rounded-lg" onClick={() => setMenuOpen(false)}>
                 <svg className="inline w-5 h-5 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                Latest News
+                Trending News
               </Link>
             </div>
             <button

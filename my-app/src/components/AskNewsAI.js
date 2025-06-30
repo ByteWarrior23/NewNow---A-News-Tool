@@ -12,7 +12,8 @@ const AskNewsAI = () => {
     setError('');
     setAnswer('');
     try {
-      const res = await fetch('/api/openai', {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+      const res = await fetch(`${backendUrl}/api/openai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -38,7 +39,8 @@ const AskNewsAI = () => {
     } catch {
       try {
         // Fallback to Gemini
-        const res = await fetch('/api/gemini', {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+        const res = await fetch(`${backendUrl}/api/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -70,7 +70,8 @@ const NewspaperContainer = () => {
           
           try {
             console.log(`📰 Trying NewsAPI key ${i + 1} for: ${section.name}`);
-            const response = await fetch('/api/news', {
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+            const response = await fetch(`${backendUrl}/api/news`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -147,7 +148,8 @@ const NewspaperContainer = () => {
         if (!success) {
           try {
             console.log(`🌐 Trying GNews for: ${section.name}`);
-            const res = await fetch('/api/gnews', {
+            const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+            const res = await fetch(`${backendUrl}/api/gnews`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ query: section.query }),

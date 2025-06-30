@@ -26,7 +26,8 @@ const HomeNews = () => {
       let totalResults = 0;
       let success = false;
       try {
-        const res = await fetch('/api/news', {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+        const res = await fetch(`${backendUrl}/api/news`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: 'home', page }),

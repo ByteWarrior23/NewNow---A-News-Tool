@@ -69,6 +69,7 @@ const NewsList = () => {
   const [quality, setQuality] = useState(null);
   const topRef = useRef(null);
   const { menuOpen } = useContext(MenuContext);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => setShowTop(window.scrollY > 300);
@@ -88,7 +89,7 @@ const NewsList = () => {
         const res = await fetch(`${backendUrl}/api/news`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: section, page }),
+          body: JSON.stringify({ query: section, page, forceRefresh: true, refreshKey }),
         });
         const data = await res.json();
         if (data.status === 'ok' && data.articles) {
@@ -112,7 +113,7 @@ const NewsList = () => {
       setLoading(false);
     };
     fetchNews();
-  }, [section, page]);
+  }, [section, page, refreshKey]);
 
   useEffect(() => {
     if (!loading && articles.length === 0) {
@@ -199,6 +200,12 @@ const NewsList = () => {
         <p className="text-lg text-gray-700 dark:text-gray-300">
           {display.description}
         </p>
+        <button
+          onClick={() => setRefreshKey(k => k + 1)}
+          className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded shadow transition-all"
+        >
+          Refresh News
+        </button>
       </section>
 
       {loading && <div className="text-center text-blue-600 dark:text-blue-400 animate-pulse">Loading...</div>}

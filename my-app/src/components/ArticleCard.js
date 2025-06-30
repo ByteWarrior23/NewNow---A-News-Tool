@@ -1,5 +1,6 @@
 import React from 'react';
 
+<<<<<<< HEAD
 // Credible news sources for credibility badges
 const CREDIBLE_SOURCES = [
   'reuters', 'associated press', 'ap', 'bbc', 'cnn', 'nbc news', 'abc news', 
@@ -47,6 +48,11 @@ const ArticleCard = ({ article }) => {
 
   return (
     <article className="rounded-xl shadow-lg overflow-hidden bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex flex-col hover:shadow-xl transition-all duration-300 group">
+=======
+const ArticleCard = ({ article }) => {
+  return (
+    <article className="rounded-xl shadow-lg overflow-hidden bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex flex-col hover:shadow-xl transition-shadow duration-300">
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       <div className="w-full h-48 overflow-hidden relative">
         <img 
           src={article.urlToImage || '/logo192.png'} 
@@ -55,6 +61,7 @@ const ArticleCard = ({ article }) => {
           loading="lazy" 
           onError={e => { e.target.onerror = null; e.target.src = '/logo192.png'; }}
         />
+<<<<<<< HEAD
         
         {/* Freshness indicator */}
         <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
@@ -109,6 +116,32 @@ const ArticleCard = ({ article }) => {
             <span>Quality</span>
           </div>
         </div>
+=======
+      </div>
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-gray-400 dark:text-gray-400 uppercase">
+            {article.source?.name}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {new Date(article.publishedAt).toLocaleDateString()}
+          </div>
+        </div>
+        <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white line-clamp-2 leading-tight">
+          {article.title}
+        </h3>
+        <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3 text-sm flex-1">
+          {article.description}
+        </p>
+        <a 
+          href={article.url} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="mt-auto text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-all duration-300"
+        >
+          Read More
+        </a>
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       </div>
     </article>
   );

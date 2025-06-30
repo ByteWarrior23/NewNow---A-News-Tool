@@ -70,8 +70,12 @@ const NewspaperContainer = () => {
           
           try {
             console.log(`📰 Trying NewsAPI key ${i + 1} for: ${section.name}`);
+<<<<<<< HEAD
             const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
             const response = await fetch(`${backendUrl}/api/news`, {
+=======
+            const response = await fetch('/api/news', {
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -148,8 +152,12 @@ const NewspaperContainer = () => {
         if (!success) {
           try {
             console.log(`🌐 Trying GNews for: ${section.name}`);
+<<<<<<< HEAD
             const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
             const res = await fetch(`${backendUrl}/api/gnews`, {
+=======
+            const res = await fetch('/api/gnews', {
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ query: section.query }),
@@ -361,11 +369,44 @@ const NewspaperContainer = () => {
           </div>
         </section>
         {/* News Sections */}
+<<<<<<< HEAD
         <section className="container mx-auto px-4 sm:px-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {sectionData.map((section, idx) => (
             <NewsCard key={section.name} section={section} />
           ))}
         </section>
+=======
+        {isMobile ? (
+          <section className="w-full flex flex-col items-center">
+            {sectionData.length > 0 && (
+              <NewsCard section={sectionData[mobileCardIdx]} interval={3500} />
+            )}
+            <div className="flex justify-center gap-4 mt-4">
+              <button
+                onClick={() => setMobileCardIdx(idx => Math.max(0, idx - 1))}
+                disabled={mobileCardIdx === 0}
+                className="px-4 py-2 rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-100 font-semibold shadow hover:bg-zinc-300 dark:hover:bg-zinc-600 disabled:opacity-50 transition-all"
+              >
+                Previous
+              </button>
+              <span className="px-4 py-2 text-zinc-500 dark:text-zinc-400">{mobileCardIdx + 1} of {sectionData.length}</span>
+                <button
+                onClick={() => setMobileCardIdx(idx => Math.min(sectionData.length - 1, idx + 1))}
+                disabled={mobileCardIdx === sectionData.length - 1}
+                className="px-4 py-2 rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-100 font-semibold shadow hover:bg-zinc-300 dark:hover:bg-zinc-600 disabled:opacity-50 transition-all"
+              >
+                Next
+                </button>
+              </div>
+          </section>
+        ) : (
+          <section className="container mx-auto px-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            {sectionData.map((section, idx) => (
+              <NewsCard key={section.name} section={section} />
+            ))}
+          </section>
+        )}
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
         {sectionData.length === 0 && (
           <div className="flex justify-center items-center h-96">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
@@ -388,7 +429,11 @@ const NewspaperContainer = () => {
       <section className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 py-12 px-4 mt-0">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4 text-zinc-900 dark:text-white">About Us</h2>
+<<<<<<< HEAD
           <p className="text-lg text-gray-700 dark:text-gray-300 mb-6">NewsNow - https://newsnow-a-news-tool.netlify.app is your trusted source for the latest news, analysis, and insights from around the world. Our mission is to keep you informed, inspired, and ahead of the curve. We curate news from top sources and deliver it to you with speed, accuracy, and integrity.</p>
+=======
+          <p className="text-lg text-gray-700 dark:text-gray-300 mb-6">NewsNow is your trusted source for the latest news, analysis, and insights from around the world. Our mission is to keep you informed, inspired, and ahead of the curve. We curate news from top sources and deliver it to you with speed, accuracy, and integrity.</p>
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
           <p className="text-md text-gray-600 dark:text-gray-400 mb-8">Have questions, feedback, or partnership inquiries? Reach out to us below!</p>
           <ContactUsForm />
         </div>
@@ -411,7 +456,11 @@ const NewspaperContainer = () => {
         }
       `}</style>
       <footer className="py-6 text-center text-sm bg-zinc-100 dark:bg-zinc-900 text-gray-500 dark:text-gray-400">
+<<<<<<< HEAD
         © 2024 NewsNow - https://newsnow-a-news-tool.netlify.app. All rights reserved.
+=======
+        © 2024 NewsNow. All rights reserved.
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       </footer>
     </div>
   );

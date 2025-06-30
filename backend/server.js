@@ -11,18 +11,29 @@ app.use(express.json());
 // In-memory cache
 const newsCache = {};
 const aiCache = {};
+<<<<<<< HEAD
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes (reduced for more dynamic content)
 
 // NewsAPI keys rotation - using more reliable keys
 const NEWSAPI_KEYS = [
   'cef746d60bcb472495f74deff9156436',
   '2479479084c04b4d8278c0c474687c0e',
+=======
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+// NewsAPI keys rotation
+const NEWSAPI_KEYS = [
+  'cef746d60bcb472495f74deff9156436',
+  '2479479084c04b4d8278c0c474687c0e',
+  'cef746d60bcb472495f74deff9156436', // Replaced invalid key with working key 1
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
   '3befea5a207042ada2bc0c15e097eb8b',
   '29b19221c70c4d6eaf44479bdca67d0b',
 ];
 let newsApiKeyIndex = 0;
 const GNEWS_API_KEY = 'a1111e26000d8f62f6362c05a5d01052';
 
+<<<<<<< HEAD
 // Credible news sources (higher priority)
 const CREDIBLE_SOURCES = [
   'reuters', 'associated press', 'ap', 'bbc', 'cnn', 'nbc news', 'abc news', 
@@ -40,6 +51,8 @@ const SPAM_KEYWORDS = [
   'exclusive', 'insider', 'secret', 'hidden', 'revealed', 'exposed'
 ];
 
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
 // Helper: get next NewsAPI key
 function getNextNewsApiKey() {
   const key = NEWSAPI_KEYS[newsApiKeyIndex];
@@ -47,6 +60,7 @@ function getNextNewsApiKey() {
   return key;
 }
 
+<<<<<<< HEAD
 // Enhanced content quality filter
 function filterQualityContent(articles, currentApiImages = []) {
   return articles.filter(article => {
@@ -273,16 +287,161 @@ app.post('/api/news', async (req, res) => {
             status: 'ok',
                 totalResults: Math.min(data.totalResults || 1000, 1000),
                 articles: sortedArticles.slice(0, 20).map(a => ({
+=======
+// NewsAPI proxy with strict priority order and caching
+app.post('/api/news', async (req, res) => {
+  let { query, page = 1, sortBy = 'publishedAt', trending } = req.body;
+  if (!query) query = 'India';
+  const cacheKey = `newsapi-${query}-page${page}-sortBy${sortBy}-trending${trending || false}`;
+  const now = Date.now();
+  
+  // Check cache first
+  if (newsCache[cacheKey] && now - newsCache[cacheKey].ts < CACHE_DURATION) {
+    console.log(`📦 Serving cached data for: ${query}`);
+    return res.json(newsCache[cacheKey].data);
+  }
+
+  console.log(`🔍 Fetching news for: ${query} (page ${page})`);
+  
+  // PRIORITY 1: Try NewsAPI with ALL keys first
+  let data = null;
+  let newsApiSuccess = false;
+  let usedKey = null;
+  
+  for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
+    const apiKey = NEWSAPI_KEYS[i];
+    let url;
+    
+    if (trending) {
+      url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=20&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
+    } else {
+      url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=20&page=${page}&sortBy=relevancy&apiKey=${apiKey}`;
+    }
+    
+    try {
+      console.log(`📰 Trying NewsAPI key ${i + 1} for: ${query}`);
+      const response = await fetch(url);
+      data = await response.json();
+      
+      if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+        // Filter for quality articles with valid images
+        const qualityArticles = data.articles.filter(article => {
+          // Must have title and image
+          if (!article.title || !article.urlToImage) return false;
+          
+          // Image must be valid
+          const hasValidImage = article.urlToImage && 
+            article.urlToImage.includes('https://') && 
+            !article.urlToImage.includes('null') &&
+            !article.urlToImage.includes('undefined') &&
+            article.urlToImage.length > 20;
+          
+          if (!hasValidImage) return false;
+          
+          // Title must be reasonable length
+          const hasGoodTitle = article.title.length > 10 && article.title.length < 200;
+          
+          // Must have description
+          const hasDescription = article.description && article.description.length > 20;
+          
+          // Must have valid URL
+          const hasValidUrl = article.url && article.url.includes('http');
+          
+          return hasGoodTitle && hasDescription && hasValidUrl;
+        });
+        
+        if (qualityArticles.length > 0) {
+          console.log(`✅ NewsAPI success with key ${i + 1}: ${qualityArticles.length} quality articles`);
+          newsApiSuccess = true;
+          usedKey = apiKey;
+          
+          // Return only quality articles
+          const qualityData = {
+            ...data,
+            articles: qualityArticles,
+            totalResults: data.totalResults || 1000 // Preserve original totalResults or set a reasonable default
+          };
+          
+          newsCache[cacheKey] = { data: qualityData, ts: now };
+          return res.json(qualityData);
+        } else {
+          console.log(`⚠️ NewsAPI key ${i + 1} returned articles but none met quality standards`);
+          continue;
+        }
+      } else if (data.code === 'rateLimited' || data.code === 'apiKeyExhausted' || (data.message && data.message.includes('too many requests'))) {
+        console.log(`⚠️ NewsAPI key ${i + 1} rate limited, trying next key`);
+        continue;
+      } else {
+        console.log(`❌ NewsAPI key ${i + 1} failed: ${data.message || 'Unknown error'}`);
+        continue; // Try next key instead of breaking
+      }
+    } catch (err) {
+      console.log(`❌ NewsAPI key ${i + 1} error: ${err.message}`);
+      continue;
+    }
+  }
+
+  // PRIORITY 2: If ALL NewsAPI keys failed, try GNews
+  if (!newsApiSuccess) {
+    console.log(`🌐 All NewsAPI keys failed, trying GNews for: ${query}`);
+    let gnewsUrl;
+    if (trending) {
+      gnewsUrl = `https://gnews.io/api/v4/top-headlines?country=in&max=20&page=${page}&apikey=${GNEWS_API_KEY}`;
+    } else {
+      gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=20&page=${page}&apikey=${GNEWS_API_KEY}`;
+    }
+    
+    try {
+      const response = await fetch(gnewsUrl);
+      data = await response.json();
+      
+      if (data.articles && data.articles.length > 0) {
+        // Filter for quality articles with valid images
+        const qualityArticles = data.articles.filter(article => {
+          // Must have title and image
+          if (!article.title || !article.image) return false;
+          
+          // Image must be valid
+          const hasValidImage = article.image && 
+            article.image.includes('https://') && 
+            !article.image.includes('null') &&
+            !article.image.includes('undefined') &&
+            article.image.length > 20;
+          
+          if (!hasValidImage) return false;
+          
+          // Title must be reasonable length
+          const hasGoodTitle = article.title.length > 10 && article.title.length < 200;
+          
+          // Must have description
+          const hasDescription = article.description && article.description.length > 20;
+          
+          // Must have valid URL
+          const hasValidUrl = article.url && article.url.includes('http');
+          
+          return hasGoodTitle && hasDescription && hasValidUrl;
+        });
+        
+        if (qualityArticles.length > 0) {
+          console.log(`✅ GNews success: ${qualityArticles.length} quality articles`);
+          const converted = {
+            status: 'ok',
+            totalResults: data.totalResults || 1000, // Preserve original totalResults or set a reasonable default
+            articles: qualityArticles.map(a => ({
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
               ...a,
               urlToImage: a.image,
               publishedAt: a.publishedAt,
               source: { name: a.source?.name || 'GNews' },
             })),
+<<<<<<< HEAD
                 quality: {
                   filteredCount: qualityArticles.length,
                   totalCount: data.articles.length,
                   credibilityScore: sortedArticles[0] ? getSourceCredibilityScore(sortedArticles[0].source?.name || '') : 0
                 }
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
           };
           newsCache[cacheKey] = { data: converted, ts: now };
           return res.json(converted);
@@ -291,7 +450,10 @@ app.post('/api/news', async (req, res) => {
         }
       } else {
         console.log(`❌ GNews failed: No articles returned`);
+<<<<<<< HEAD
           }
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       }
     } catch (err) {
       console.log(`❌ GNews error: ${err.message}`);
@@ -314,14 +476,22 @@ app.post('/api/news', async (req, res) => {
           messages: [
             { 
               role: 'system', 
+<<<<<<< HEAD
                 content: 'You are a knowledgeable news assistant. Provide comprehensive, accurate information about current events, news topics, and general knowledge. Include relevant context, recent developments, and helpful insights. Be informative and engaging.' 
+=======
+              content: 'You are a knowledgeable news assistant. Provide comprehensive, accurate summaries of current events and news topics. Include key developments, context, and relevant background information. Be informative and helpful.' 
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
             },
             { 
               role: 'user', 
               content: `Provide a detailed summary of recent ${query} news and developments. Include key events, trends, important context, and any significant developments. If this is a search query, explain what's happening in this area and provide relevant insights.` 
             },
           ],
+<<<<<<< HEAD
             max_tokens: 500,
+=======
+          max_tokens: 400,
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
           temperature: 0.7,
         }),
       });
@@ -341,12 +511,52 @@ app.post('/api/news', async (req, res) => {
             publishedAt: new Date().toISOString(),
             source: { name: 'AI News Assistant' },
           }],
+<<<<<<< HEAD
             quality: {
               filteredCount: 1,
               totalCount: 1,
               credibilityScore: 8,
               note: 'AI-generated summary due to API limitations'
             }
+=======
+        };
+        newsCache[cacheKey] = { data: fallbackWithAI, ts: now };
+        return res.json(fallbackWithAI);
+      }
+    }
+    
+    // Try Gemini if OpenAI failed
+    if (process.env.GEMINI_API_KEY) {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ 
+            parts: [{ 
+              text: `Provide a detailed summary of recent ${query} news and developments. Include key events, trends, important context, and any significant developments. If this is a search query, explain what's happening in this area and provide relevant insights.` 
+            }] 
+          }],
+        }),
+      });
+      const geminiData = await geminiResponse.json();
+      
+      if (geminiData.candidates && geminiData.candidates[0] && geminiData.candidates[0].content) {
+        console.log(`✅ AI chatbot success: Generated comprehensive summary`);
+        const aiSummary = geminiData.candidates[0].content.parts[0].text.trim();
+        const fallbackWithAI = {
+          status: 'ok',
+          totalResults: 1,
+          articles: [{
+            title: `AI Analysis: ${query.charAt(0).toUpperCase() + query.slice(1)} News & Developments`,
+            description: aiSummary,
+            url: '#',
+            urlToImage: '/logo192.png',
+            publishedAt: new Date().toISOString(),
+            source: { name: 'AI News Assistant' },
+          }],
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
         };
         newsCache[cacheKey] = { data: fallbackWithAI, ts: now };
         return res.json(fallbackWithAI);
@@ -360,6 +570,7 @@ app.post('/api/news', async (req, res) => {
   console.log(`📄 Using fallback data for: ${query}`);
   try {
     const fallback = JSON.parse(fs.readFileSync(__dirname + '/fallbackNews.json', 'utf8'));
+<<<<<<< HEAD
       newsCache[cacheKey] = { data: fallback, ts: now };
     return res.json(fallback);
   } catch (err) {
@@ -386,6 +597,12 @@ app.post('/api/news', async (req, res) => {
       message: 'Internal server error. Please try again later.',
       error: error.message 
     });
+=======
+    return res.json(fallback);
+  } catch (err) {
+    console.log(`❌ Fallback failed: ${err.message}`);
+    return res.status(500).json({ error: 'All news sources failed and no fallback available.' });
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
   }
 });
 

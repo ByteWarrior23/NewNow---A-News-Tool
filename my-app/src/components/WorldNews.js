@@ -18,8 +18,12 @@ const WorldNews = () => {
       let totalResults = 0;
       let success = false;
       try {
+<<<<<<< HEAD
         const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
         const res = await fetch(`${backendUrl}/api/news`, {
+=======
+        const res = await fetch('/api/news', {
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: 'world', page }),

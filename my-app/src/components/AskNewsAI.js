@@ -12,8 +12,12 @@ const AskNewsAI = () => {
     setError('');
     setAnswer('');
     try {
+<<<<<<< HEAD
       const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/api/openai`, {
+=======
+      const res = await fetch('/api/openai', {
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,8 +43,12 @@ const AskNewsAI = () => {
     } catch {
       try {
         // Fallback to Gemini
+<<<<<<< HEAD
         const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
         const res = await fetch(`${backendUrl}/api/gemini`, {
+=======
+        const res = await fetch('/api/gemini', {
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

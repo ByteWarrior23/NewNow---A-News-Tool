@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import { MenuContext } from '../App';
+<<<<<<< HEAD
 import QualityIndicator from './QualityIndicator';
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
 
 const PAGE_SIZE = 12;
 
@@ -66,10 +69,15 @@ const NewsList = () => {
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [liveStatus, setLiveStatus] = useState(null);
   const [showTop, setShowTop] = useState(false);
+<<<<<<< HEAD
   const [quality, setQuality] = useState(null);
   const topRef = useRef(null);
   const { menuOpen } = useContext(MenuContext);
   const [refreshKey, setRefreshKey] = useState(0);
+=======
+  const topRef = useRef(null);
+  const { menuOpen } = useContext(MenuContext);
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
 
   useEffect(() => {
     const handleScroll = () => setShowTop(window.scrollY > 300);
@@ -83,6 +91,7 @@ const NewsList = () => {
       let success = false;
       let articles = [];
       let totalResults = 0;
+<<<<<<< HEAD
       let qualityData = null;
       try {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
@@ -90,11 +99,19 @@ const NewsList = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: section, page, forceRefresh: true, refreshKey }),
+=======
+      try {
+        const res = await fetch('/api/news', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: section, page }),
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
         });
         const data = await res.json();
         if (data.status === 'ok' && data.articles) {
           articles = data.articles;
           totalResults = data.totalResults;
+<<<<<<< HEAD
           qualityData = data.quality;
           success = true;
         }
@@ -109,11 +126,23 @@ const NewsList = () => {
       setArticles(sorted);
       setTotalResults(success ? totalResults : 0);
       setQuality(qualityData);
+=======
+          success = true;
+        }
+      } catch {}
+      const sorted = success ? [...articles].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)) : [];
+      setArticles(sorted);
+      setTotalResults(success ? totalResults : 0);
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       setLiveStatus(success ? 'LIVE' : 'OFFLINE');
       setLoading(false);
     };
     fetchNews();
+<<<<<<< HEAD
   }, [section, page, refreshKey]);
+=======
+  }, [section, page]);
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
 
   useEffect(() => {
     if (!loading && articles.length === 0) {
@@ -200,19 +229,25 @@ const NewsList = () => {
         <p className="text-lg text-gray-700 dark:text-gray-300">
           {display.description}
         </p>
+<<<<<<< HEAD
         <button
           onClick={() => setRefreshKey(k => k + 1)}
           className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded shadow transition-all"
         >
           Refresh News
         </button>
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       </section>
 
       {loading && <div className="text-center text-blue-600 dark:text-blue-400 animate-pulse">Loading...</div>}
       {chatbotLoading && <div className="text-center text-blue-600 dark:text-blue-400 animate-pulse mb-4">🤖 AI is analyzing the latest news...</div>}
+<<<<<<< HEAD
       {!loading && quality && (
         <QualityIndicator quality={quality} totalResults={totalResults} />
       )}
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
       {chatbotResponse && articles.length === 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 p-6 rounded-lg mb-8 shadow-sm">
           <div className="flex items-start gap-3">

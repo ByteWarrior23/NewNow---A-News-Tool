@@ -39,7 +39,11 @@ const Navbar = () => {
   return (
     <nav className="sticky top-0 w-full bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white shadow-md z-50 font-sans border-b border-zinc-200 dark:border-zinc-700 fade-in">
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+<<<<<<< HEAD
         <div className="text-2xl font-extrabold tracking-tight">NewsNow - https://newsnow-a-news-tool.netlify.app</div>
+=======
+        <div className="text-2xl font-extrabold tracking-tight">NewsNow</div>
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6
         {/* Desktop Search Bar */}
         <form
           onSubmit={handleSearchSubmit}

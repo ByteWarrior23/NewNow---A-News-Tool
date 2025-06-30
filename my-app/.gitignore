@@ -23,4 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+<<<<<<< HEAD
 jdk-24_windows-x64_bin/
+=======
+>>>>>>> 7628423ccd79f0cd25debbd4f53acd848ac373d6

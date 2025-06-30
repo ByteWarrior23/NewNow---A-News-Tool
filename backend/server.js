@@ -123,152 +123,152 @@ app.get('/', (req, res) => {
 // NewsAPI proxy with enhanced quality filtering
 app.post('/api/news', async (req, res) => {
   try {
-  let { query, page = 1, sortBy = 'publishedAt', trending } = req.body;
-  if (!query) query = 'India';
-  const cacheKey = `newsapi-${query}-page${page}-sortBy${sortBy}-trending${trending || false}`;
-  const now = Date.now();
-  
-  // Check cache first
-  if (newsCache[cacheKey] && now - newsCache[cacheKey].ts < CACHE_DURATION) {
-    console.log(`📦 Serving cached data for: ${query}`);
-    return res.json(newsCache[cacheKey].data);
-  }
-
-  console.log(`🔍 Fetching news for: ${query} (page ${page})`);
-  
-  // PRIORITY 1: Try NewsAPI with ALL keys first
-  let data = null;
-  let newsApiSuccess = false;
-  let usedKey = null;
-  
-  for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
-    const apiKey = NEWSAPI_KEYS[i];
-    let url;
+    let { query, page = 1, sortBy = 'publishedAt', trending, forceRefresh } = req.body;
+    if (!query) query = 'India';
+    const cacheKey = `newsapi-${query}-page${page}-sortBy${sortBy}-trending${trending || false}`;
+    const now = Date.now();
     
-    if (trending) {
-        url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=30&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
-    } else {
-        url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=30&page=${page}&sortBy=relevancy&apiKey=${apiKey}`;
+    // Check cache first, unless forceRefresh is true
+    if (!forceRefresh && newsCache[cacheKey] && now - newsCache[cacheKey].ts < CACHE_DURATION) {
+      console.log(`📦 Serving cached data for: ${query}`);
+      return res.json(newsCache[cacheKey].data);
     }
+
+    console.log(`🔍 Fetching news for: ${query} (page ${page})`);
     
-    try {
-      console.log(`📰 Trying NewsAPI key ${i + 1} for: ${query}`);
-        const response = await fetch(url, { timeout: 10000 });
-        
-        if (!response.ok) {
-          console.log(`❌ NewsAPI key ${i + 1} HTTP error: ${response.status}`);
-          continue;
-        }
-        
-      data = await response.json();
+    // PRIORITY 1: Try NewsAPI with ALL keys first
+    let data = null;
+    let newsApiSuccess = false;
+    let usedKey = null;
+    
+    for (let i = 0; i < NEWSAPI_KEYS.length; i++) {
+      const apiKey = NEWSAPI_KEYS[i];
+      let url;
       
-      if (data.status === 'ok' && data.articles && data.articles.length > 0) {
-          // Enhanced quality filtering
-          const qualityArticles = filterQualityContent(data.articles);
+      if (trending) {
+          url = `https://newsapi.org/v2/top-headlines?country=in&pageSize=30&page=${page}&sortBy=${sortBy}&apiKey=${apiKey}`;
+      } else {
+          url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=30&page=${page}&sortBy=relevancy&apiKey=${apiKey}`;
+      }
+      
+      try {
+        console.log(`📰 Trying NewsAPI key ${i + 1} for: ${query}`);
+          const response = await fetch(url, { timeout: 10000 });
+          
+          if (!response.ok) {
+            console.log(`❌ NewsAPI key ${i + 1} HTTP error: ${response.status}`);
+            continue;
+          }
+          
+        data = await response.json();
+        
+        if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+            // Enhanced quality filtering
+            const qualityArticles = filterQualityContent(data.articles);
+            
+            if (qualityArticles.length > 0) {
+              // Sort by credibility and recency
+              const sortedArticles = sortByCredibilityAndRecency(qualityArticles);
+              
+              console.log(`✅ NewsAPI success with key ${i + 1}: ${sortedArticles.length} quality articles`);
+            newsApiSuccess = true;
+            usedKey = apiKey;
+            
+              // Return only the best articles
+            const qualityData = {
+              ...data,
+                articles: sortedArticles.slice(0, 20), // Limit to 20 best articles
+                totalResults: Math.min(data.totalResults || 1000, 1000),
+                quality: {
+                  filteredCount: qualityArticles.length,
+                  totalCount: data.articles.length,
+                  credibilityScore: sortedArticles[0] ? getSourceCredibilityScore(sortedArticles[0].source?.name || '') : 0
+                }
+            };
+            
+            newsCache[cacheKey] = { data: qualityData, ts: now };
+            return res.json(qualityData);
+          } else {
+            console.log(`⚠️ NewsAPI key ${i + 1} returned articles but none met quality standards`);
+            continue;
+          }
+        } else if (data.code === 'rateLimited' || data.code === 'apiKeyExhausted' || (data.message && data.message.includes('too many requests'))) {
+          console.log(`⚠️ NewsAPI key ${i + 1} rate limited, trying next key`);
+          continue;
+        } else {
+          console.log(`❌ NewsAPI key ${i + 1} failed: ${data.message || 'Unknown error'}`);
+            continue;
+        }
+      } catch (err) {
+        console.log(`❌ NewsAPI key ${i + 1} error: ${err.message}`);
+        continue;
+      }
+    }
+
+    // PRIORITY 2: If ALL NewsAPI keys failed, try GNews
+    if (!newsApiSuccess) {
+      console.log(`🌐 All NewsAPI keys failed, trying GNews for: ${query}`);
+      let gnewsUrl;
+      if (trending) {
+          gnewsUrl = `https://gnews.io/api/v4/top-headlines?country=in&max=30&page=${page}&apikey=${GNEWS_API_KEY}`;
+      } else {
+          gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=30&page=${page}&apikey=${GNEWS_API_KEY}`;
+      }
+      
+      try {
+          const response = await fetch(gnewsUrl, { timeout: 10000 });
+          
+          if (!response.ok) {
+            console.log(`❌ GNews HTTP error: ${response.status}`);
+          } else {
+        data = await response.json();
+        
+        if (data.articles && data.articles.length > 0) {
+              // Enhanced quality filtering for GNews
+          const qualityArticles = data.articles.filter(article => {
+            if (!article.title || !article.image) return false;
+            
+                const title = article.title.toLowerCase();
+                const description = (article.description || '').toLowerCase();
+                
+                // Check for spam/clickbait
+                const hasSpamKeywords = SPAM_KEYWORDS.some(keyword => 
+                  title.includes(keyword) || description.includes(keyword)
+                );
+                if (hasSpamKeywords) return false;
+                
+                // Image quality checks
+            const hasValidImage = article.image && 
+              article.image.includes('https://') && 
+              !article.image.includes('null') &&
+              !article.image.includes('undefined') &&
+              article.image.length > 20;
+            
+            if (!hasValidImage) return false;
+            
+                // Content quality checks
+                const hasGoodTitle = title.length > 15 && title.length < 150;
+                const hasGoodDescription = description.length > 30 && description.length < 300;
+            const hasValidUrl = article.url && article.url.includes('http');
+                const hasRecentDate = article.publishedAt && 
+                  new Date(article.publishedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            
+                return hasGoodTitle && hasGoodDescription && hasValidUrl && hasRecentDate;
+          });
           
           if (qualityArticles.length > 0) {
-            // Sort by credibility and recency
-            const sortedArticles = sortByCredibilityAndRecency(qualityArticles);
-            
-            console.log(`✅ NewsAPI success with key ${i + 1}: ${sortedArticles.length} quality articles`);
-          newsApiSuccess = true;
-          usedKey = apiKey;
-          
-            // Return only the best articles
-          const qualityData = {
-            ...data,
-              articles: sortedArticles.slice(0, 20), // Limit to 20 best articles
-              totalResults: Math.min(data.totalResults || 1000, 1000),
-              quality: {
-                filteredCount: qualityArticles.length,
-                totalCount: data.articles.length,
-                credibilityScore: sortedArticles[0] ? getSourceCredibilityScore(sortedArticles[0].source?.name || '') : 0
-              }
-          };
-          
-          newsCache[cacheKey] = { data: qualityData, ts: now };
-          return res.json(qualityData);
-        } else {
-          console.log(`⚠️ NewsAPI key ${i + 1} returned articles but none met quality standards`);
-          continue;
-        }
-      } else if (data.code === 'rateLimited' || data.code === 'apiKeyExhausted' || (data.message && data.message.includes('too many requests'))) {
-        console.log(`⚠️ NewsAPI key ${i + 1} rate limited, trying next key`);
-        continue;
-      } else {
-        console.log(`❌ NewsAPI key ${i + 1} failed: ${data.message || 'Unknown error'}`);
-          continue;
-      }
-    } catch (err) {
-      console.log(`❌ NewsAPI key ${i + 1} error: ${err.message}`);
-      continue;
-    }
-  }
-
-  // PRIORITY 2: If ALL NewsAPI keys failed, try GNews
-  if (!newsApiSuccess) {
-    console.log(`🌐 All NewsAPI keys failed, trying GNews for: ${query}`);
-    let gnewsUrl;
-    if (trending) {
-        gnewsUrl = `https://gnews.io/api/v4/top-headlines?country=in&max=30&page=${page}&apikey=${GNEWS_API_KEY}`;
-    } else {
-        gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=30&page=${page}&apikey=${GNEWS_API_KEY}`;
-    }
-    
-    try {
-        const response = await fetch(gnewsUrl, { timeout: 10000 });
-        
-        if (!response.ok) {
-          console.log(`❌ GNews HTTP error: ${response.status}`);
-        } else {
-      data = await response.json();
-      
-      if (data.articles && data.articles.length > 0) {
-            // Enhanced quality filtering for GNews
-        const qualityArticles = data.articles.filter(article => {
-          if (!article.title || !article.image) return false;
-          
-              const title = article.title.toLowerCase();
-              const description = (article.description || '').toLowerCase();
-              
-              // Check for spam/clickbait
-              const hasSpamKeywords = SPAM_KEYWORDS.some(keyword => 
-                title.includes(keyword) || description.includes(keyword)
-              );
-              if (hasSpamKeywords) return false;
-              
-              // Image quality checks
-          const hasValidImage = article.image && 
-            article.image.includes('https://') && 
-            !article.image.includes('null') &&
-            !article.image.includes('undefined') &&
-            article.image.length > 20;
-          
-          if (!hasValidImage) return false;
-          
-              // Content quality checks
-              const hasGoodTitle = title.length > 15 && title.length < 150;
-              const hasGoodDescription = description.length > 30 && description.length < 300;
-          const hasValidUrl = article.url && article.url.includes('http');
-              const hasRecentDate = article.publishedAt && 
-                new Date(article.publishedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          
-              return hasGoodTitle && hasGoodDescription && hasValidUrl && hasRecentDate;
-        });
-        
-        if (qualityArticles.length > 0) {
-              // Sort by credibility and recency
-              const sortedArticles = qualityArticles.sort((a, b) => {
-                const aScore = getSourceCredibilityScore(a.source?.name || '');
-                const bScore = getSourceCredibilityScore(b.source?.name || '');
+                // Sort by credibility and recency
+                const sortedArticles = qualityArticles.sort((a, b) => {
+                  const aScore = getSourceCredibilityScore(a.source?.name || '');
+                  const bScore = getSourceCredibilityScore(b.source?.name || '');
+                  
+                  if (Math.abs(aScore - bScore) <= 2) {
+                    return new Date(b.publishedAt) - new Date(a.publishedAt);
+                  }
+                  return bScore - aScore;
+                });
                 
-                if (Math.abs(aScore - bScore) <= 2) {
-                  return new Date(b.publishedAt) - new Date(a.publishedAt);
-                }
-                return bScore - aScore;
-              });
-              
-              console.log(`✅ GNews success: ${sortedArticles.length} quality articles`);
+                console.log(`✅ GNews success: ${sortedArticles.length} quality articles`);
           const converted = {
             status: 'ok',
                 totalResults: Math.min(data.totalResults || 1000, 1000),

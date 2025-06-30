@@ -54,7 +54,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className={`w-full bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white shadow-md z-50 font-sans border-b border-zinc-200 dark:border-zinc-700 fade-in transition-all duration-500 ${atBottom ? 'fixed bottom-0 top-auto' : 'sticky top-0'}`}>
+    <nav className="sticky top-0 z-50 w-full bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white shadow-md border-b border-zinc-200 dark:border-zinc-700 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         <div className="text-2xl font-extrabold tracking-tight">NewsNow - https://newsnow-a-news-tool.netlify.app</div>
         {/* Desktop Search Bar */}

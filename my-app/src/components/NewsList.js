@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import { MenuContext } from '../App';
+import QualityIndicator from './QualityIndicator';
 
 const PAGE_SIZE = 12;
 
@@ -65,6 +66,7 @@ const NewsList = () => {
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [liveStatus, setLiveStatus] = useState(null);
   const [showTop, setShowTop] = useState(false);
+  const [quality, setQuality] = useState(null);
   const topRef = useRef(null);
   const { menuOpen } = useContext(MenuContext);
 
@@ -80,6 +82,7 @@ const NewsList = () => {
       let success = false;
       let articles = [];
       let totalResults = 0;
+      let qualityData = null;
       try {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
         const res = await fetch(`${backendUrl}/api/news`, {
@@ -91,12 +94,20 @@ const NewsList = () => {
         if (data.status === 'ok' && data.articles) {
           articles = data.articles;
           totalResults = data.totalResults;
+          qualityData = data.quality;
           success = true;
         }
       } catch {}
-      const sorted = success ? [...articles].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)) : [];
+      // Sort by date first
+      let sorted = success ? [...articles].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)) : [];
+      // Always prioritize articles with images, then by recency
+      sorted = [
+        ...sorted.filter(a => a.urlToImage && a.urlToImage.length > 10 && a.urlToImage.startsWith('http')),
+        ...sorted.filter(a => !a.urlToImage || a.urlToImage.length <= 10 || !a.urlToImage.startsWith('http'))
+      ];
       setArticles(sorted);
       setTotalResults(success ? totalResults : 0);
+      setQuality(qualityData);
       setLiveStatus(success ? 'LIVE' : 'OFFLINE');
       setLoading(false);
     };
@@ -192,6 +203,9 @@ const NewsList = () => {
 
       {loading && <div className="text-center text-blue-600 dark:text-blue-400 animate-pulse">Loading...</div>}
       {chatbotLoading && <div className="text-center text-blue-600 dark:text-blue-400 animate-pulse mb-4">🤖 AI is analyzing the latest news...</div>}
+      {!loading && quality && (
+        <QualityIndicator quality={quality} totalResults={totalResults} />
+      )}
       {chatbotResponse && articles.length === 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 p-6 rounded-lg mb-8 shadow-sm">
           <div className="flex items-start gap-3">

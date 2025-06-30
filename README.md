@@ -69,7 +69,7 @@ NewsNow is a full-stack news website featuring a dynamic React frontend and a No
 ## Live Demo
 
 - Frontend: [https://newsnow-a-news-tool.netlify.app](https://newsnow-a-news-tool.netlify.app)
-- Backend: (your Railway URL)
+- Backend: [(https://newsnow-a-news-tool-production.up.railway.app/)]
 
 ## License
 
